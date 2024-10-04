@@ -1,5 +1,3 @@
-// File: app/page.js
-
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
@@ -8,7 +6,6 @@ import { Card, CardHeader, CardContent } from './components/Card';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Custom debounce function
 function useDebounce(func, delay) {
   const timeoutRef = useRef(null);
 
@@ -75,12 +72,8 @@ export default function Home() {
           generalApiUrl.searchParams.append('whatsappCheck', 'true');
         }
 
-        console.log('General API URL:', generalApiUrl.toString());
-
         const generalResponse = await fetch(generalApiUrl.toString());
         generalData = await generalResponse.json();
-
-        console.log('General API Response:', generalData);
 
         if (!generalResponse.ok) {
           throw new Error(`General API responded with status ${generalResponse.status}: ${generalData.message || 'Unknown error'}`);
@@ -99,12 +92,8 @@ export default function Home() {
           emailApiUrl.searchParams.append('email', searchParams.email);
         }
 
-        console.log('Email API URL:', emailApiUrl.toString());
-
         const emailResponse = await fetch(emailApiUrl.toString());
         emailData = await emailResponse.json();
-
-        console.log('Email API Response:', emailData);
 
         if (!emailResponse.ok) {
           throw new Error(`Email API responded with status ${emailResponse.status}: ${emailData.message || 'Unknown error'}`);
@@ -119,7 +108,6 @@ export default function Home() {
         setResults(null);
       } else {
         setResults(mergedResults);
-        console.log('Merged Results:', mergedResults);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -139,7 +127,6 @@ export default function Home() {
     }
   };
 
-  // Use our custom debounce hook
   const debouncedSearch = useDebounce(handleSearch, 300);
 
   return (
@@ -271,23 +258,22 @@ export default function Home() {
             </button>
           </div>
 
-          {results.person && (
+          {results.person && results.person.basic && (
             <Card>
               <CardHeader>
                 <h4 className="text-xl font-semibold text-gray-700">Person Information</h4>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.person.basic && (
-                  <>
-                    <p><span className="font-medium">Name:</span> {results.person.basic.name || 'N/A'}</p>
-                    <p><span className="font-medium">Company:</span> {results.person.basic.company || 'N/A'}</p>
-                    <p><span className="font-medium">LinkedIn:</span> {results.person.basic.linkedInUrl ? <a href={results.person.basic.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{results.person.basic.linkedInUrl}</a> : 'N/A'}</p>
-                    <p><span className="font-medium">Location:</span> {results.person.basic.location || 'N/A'}</p>
-                    <p><span className="font-medium">Email:</span> {results.person.basic.email || 'N/A'}</p>
-                  </>
-                )}
+                <p><span className="font-medium">Name:</span> {results.person.basic.name || 'N/A'}</p>
+                <p><span className="font-medium">Company:</span> {results.person.basic.company || 'N/A'}</p>
+                <p><span className="font-medium">LinkedIn:</span> {results.person.basic.linkedInUrl ? <a href={results.person.basic.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{results.person.basic.linkedInUrl}</a> : 'N/A'}</p>
+                <p><span className="font-medium">Location:</span> {results.person.basic.location || 'N/A'}</p>
+                <p><span className="font-medium">Email:</span> {results.person.basic.email || 'N/A'}</p>
                 {results.emailFinder && results.emailFinder.email && (
                   <p><span className="font-medium">Found Email:</span> {results.emailFinder.email}</p>
+                )}
+                {results.person.data && results.person.data.position && (
+                  <p><span className="font-medium">Position:</span> {results.person.data.position}</p>
                 )}
               </CardContent>
             </Card>
@@ -319,29 +305,31 @@ export default function Home() {
                 <p><span className="font-medium">Description:</span> {results.company.full.properties.shortDescription || 'N/A'}</p>
                 <p><span className="font-medium">Website:</span> {results.company.full.cards.overviewFields2.website?.value ? <a href={results.company.full.cards.overviewFields2.website.value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{results.company.full.cards.overviewFields2.website.value}</a> : 'N/A'}</p>
                 <p><span className="font-medium">Total Funding:</span> {results.company.full.cards.fundingRoundsSummary?.fundingTotal?.valueUsdRoundup || 'N/A'}</p>
+                <p><span className="font-medium">Employee Count:</span> {results.company.full.cards.overviewFields?.numEmployee || 'N/A'}</p>
+                <p><span className="font-medium">Founded:</span> {results.company.full.cards.overviewFields?.foundedOn || 'N/A'}</p>
               </CardContent>
-            </Card>
-          )}
+              </Card>
+              )}
 
-          {results.emailFinder && (
-            <Card>
-              <CardHeader>
-                <h4 className="text-xl font-semibold text-gray-700">Email Finder Results</h4>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <p><span className="font-medium">Email:</span> {results.emailFinder.email || 'N/A'}</p>
-                <p><span className="font-medium">Status:</span> {results.emailFinder.status || 'N/A'}</p>
-                <p><span className="font-medium">Type:</span> {results.emailFinder.type || 'N/A'}</p>
-                <p><span className="font-medium">Confidence Score:</span> {results.emailFinder.confidenceScore || 'N/A'}</p>
-              </CardContent>
-            </Card>
-          )}
+              {results.emailFinder && (
+              <Card>
+                <CardHeader>
+                  <h4 className="text-xl font-semibold text-gray-700">Email Finder Results</h4>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <p><span className="font-medium">Email:</span> {results.emailFinder.email || 'N/A'}</p>
+                  <p><span className="font-medium">Status:</span> {results.emailFinder.status || 'N/A'}</p>
+                  <p><span className="font-medium">Type:</span> {results.emailFinder.type || 'N/A'}</p>
+                  <p><span className="font-medium">Confidence Score:</span> {results.emailFinder.confidenceScore || 'N/A'}</p>
+                </CardContent>
+              </Card>
+              )}
 
-          {results.creditBurn && (
-            <p className="text-sm text-gray-500 mt-4">Credits used: {results.creditBurn}</p>
-          )}
-        </motion.div>
-      )}
-          </div>
-        );
-      }
+              {results.creditBurn && (
+              <p className="text-sm text-gray-500 mt-4">Credits used: {results.creditBurn}</p>
+              )}
+              </motion.div>
+              )}
+              </div>
+              );
+              }

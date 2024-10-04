@@ -1,5 +1,3 @@
-// File: app/components/Card.js
-
 import React from 'react';
 
 export function Card({ children, className = '' }) {
