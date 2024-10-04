@@ -1,0 +1,755 @@
+Directory: app
+
+File:   ClientLayout.js
+
+'use client';
+
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+
+export default function ClientLayout({ children }) {
+  return (
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <motion.div 
+        initial={{ x: -250 }}
+        animate={{ x: 0 }}
+        className="w-64 bg-white shadow-lg"
+      >
+        <div className="p-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-8">Contact Finder</h1>
+          <nav>
+            <ul className="space-y-2">
+              <li><Link href="/" className="block py-2 px-4 text-gray-700 hover:bg-gray-200 rounded transition duration-150 ease-in-out">Search</Link></li>
+              <li><Link href="/saved-results" className="block py-2 px-4 text-gray-700 hover:bg-gray-200 rounded transition duration-150 ease-in-out">Saved Results</Link></li>
+            </ul>
+          </nav>
+        </div>
+      </motion.div>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-y-auto">
+        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+----------------------------------------
+
+File:   globals.css
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+----------------------------------------
+
+File:   layout.js
+
+import './globals.css';
+import { Inter } from 'next/font/google';
+import ClientLayout from './ClientLayout';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: 'All-in-One Finder',
+  description: 'Find contact information using Datagma API',
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body className={`${inter.className} bg-gray-100`}>
+        <ClientLayout>{children}</ClientLayout>
+      </body>
+    </html>
+  );
+}
+----------------------------------------
+
+File:   page.js
+
+'use client';
+
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+
+export default function Home() {
+  const [searchParams, setSearchParams] = useState({
+    fullName: '',
+    companyName: '',
+    socialUrl: '',
+    email: '',
+    jobTitle: '',
+    country: '',
+    whatsappCheck: false,
+  });
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setSearchParams(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (e) => {
+    setSearchParams(prev => ({ ...prev, whatsappCheck: e.target.checked }));
+  };
+
+  const handleSearch = async () => {
+    setLoading(true);
+    const apiId = process.env.NEXT_PUBLIC_DATAGMA_API_ID;
+
+    // Prepare API calls
+    const calls = [];
+
+    // Email and phone search
+    if (searchParams.fullName && searchParams.companyName) {
+      calls.push(fetch(`https://gateway.datagma.net/api/ingress/v2/full?apiId=${apiId}&data=${encodeURIComponent(searchParams.companyName)}&fullName=${encodeURIComponent(searchParams.fullName)}&phoneFull=true&companyFull=true${searchParams.whatsappCheck ? '&whatsappCheck=true' : ''}`));
+    }
+
+    // LinkedIn profile search
+    if (searchParams.socialUrl) {
+      calls.push(fetch(`https://gateway.datagma.net/api/ingress/v2/full?apiId=${apiId}&data=${encodeURIComponent(searchParams.socialUrl)}&personFull=true`));
+    }
+
+    // Employee search
+    if (searchParams.companyName && searchParams.jobTitle) {
+      calls.push(fetch(`https://gateway.datagma.net/api/ingress/v1/find_people?apiId=${apiId}&currentJobTitle=${encodeURIComponent(searchParams.jobTitle)}&currentCompanies=${encodeURIComponent(searchParams.companyName)}${searchParams.country ? `&countries=${encodeURIComponent(searchParams.country)}` : ''}`));
+    }
+
+    try {
+      const responses = await Promise.all(calls);
+      const data = await Promise.all(responses.map(r => r.json()));
+
+      // Merge results
+      const mergedResults = data.reduce((acc, curr) => ({...acc, ...curr}), {});
+      setResults(mergedResults);
+      console.log('API Response:', mergedResults);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setResults({ error: 'An error occurred while fetching data' });
+    }
+
+    setLoading(false);
+  };
+
+  const handleSave = () => {
+    if (results) {
+      const savedResults = JSON.parse(localStorage.getItem('savedResults') || '[]');
+      savedResults.push(results);
+      localStorage.setItem('savedResults', JSON.stringify(savedResults));
+      alert('Results saved successfully!');
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white shadow-lg rounded-lg p-8"
+      >
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Find Contact Information</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              value={searchParams.fullName}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="John Doe"
+            />
+          </div>
+          <div>
+            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+            <input
+              type="text"
+              id="companyName"
+              name="companyName"
+              value={searchParams.companyName}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Acme Inc"
+            />
+          </div>
+          <div>
+            <label htmlFor="socialUrl" className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+            <input
+              type="text"
+              id="socialUrl"
+              name="socialUrl"
+              value={searchParams.socialUrl}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://linkedin.com/in/username"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={searchParams.email}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="user@example.com"
+            />
+          </div>
+          <div>
+            <label htmlFor="jobTitle" className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+            <input
+              type="text"
+              id="jobTitle"
+              name="jobTitle"
+              value={searchParams.jobTitle}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Sales Manager"
+            />
+          </div>
+          <div>
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+            <input
+              type="text"
+              id="country"
+              name="country"
+              value={searchParams.country}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="france"
+            />
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="whatsappCheck"
+              checked={searchParams.whatsappCheck}
+              onChange={handleCheckboxChange}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="whatsappCheck" className="ml-2 block text-sm text-gray-900">
+              Check WhatsApp
+            </label>
+          </div>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleSearch}
+          disabled={loading}
+          className="mt-6 w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out text-lg font-semibold"
+        >
+          {loading ? (
+            <svg className="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : 'Search'}
+        </motion.button>
+      </motion.div>
+
+      {results && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white shadow-lg rounded-lg p-8"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-semibold text-gray-800">Search Results</h3>
+            <button
+              onClick={handleSave}
+              className="bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out"
+            >
+              Save Results
+            </button>
+          </div>
+
+          {results.person?.basic && (
+            <div className="mb-6">
+              <h4 className="text-xl font-semibold text-gray-700 mb-3">Person Information</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <p><span className="font-medium">Name:</span> {results.person.basic.name}</p>
+                <p><span className="font-medium">Company:</span> {results.person.basic.company}</p>
+                <p><span className="font-medium">LinkedIn:</span> <a href={results.person.basic.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{results.person.basic.linkedInUrl}</a></p>
+                <p><span className="font-medium">Location:</span> {results.person.basic.location || 'N/A'}</p>
+              </div>
+            </div>
+          )}
+
+          {results.phoneFull?.phones && results.phoneFull.phones.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-xl font-semibold text-gray-700 mb-3">Phone Numbers</h4>
+              {results.phoneFull.phones.map((phone, index) => (
+                <p key={index} className="mb-2">
+                  <span className="font-medium capitalize">{phone.type}:</span> {phone.displayInternational} 
+                  {phone.linkedWhatsapp && <span className="ml-2 text-green-600 font-medium">(WhatsApp)</span>}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {results.company?.full && (
+            <div className="mb-6">
+              <h4 className="text-xl font-semibold text-gray-700 mb-3">Company Information</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <p><span className="font-medium">Name:</span> {results.company.full.properties.title}</p>
+                <p><span className="font-medium">Description:</span> {results.company.full.properties.shortDescription}</p>
+                <p><span className="font-medium">Website:</span> <a href={results.company.full.cards.overviewFields2.website.value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{results.company.full.cards.overviewFields2.website.value}</a></p>
+                <p><span className="font-medium">Total Funding:</span> {results.company.full.cards.fundingRoundsSummary.fundingTotal.valueUsdRoundup}</p>
+              </div>
+            </div>
+          )}
+
+          {results.creditBurn && (
+            <p className="text-sm text-gray-500 mt-4">Credits used: {results.creditBurn}</p>
+          )}
+
+          <div className="mt-6">
+            <h4 className="text-xl font-semibold text-gray-700 mb-3">Raw Data</h4>
+            <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-sm">
+              {JSON.stringify(results, null, 2)}
+            </pre>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+----------------------------------------
+
+File: next.config.js
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
+}
+
+module.exports = nextConfig
+----------------------------------------
+
+File: next-env.d.ts
+
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/basic-features/typescript for more information.
+
+----------------------------------------
+
+File: package.json
+
+{
+  "name": "my-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@shadcn/ui": "^0.0.4",
+    "framer-motion": "^11.11.0",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.0.0"
+  }
+}
+
+----------------------------------------
+
+File: postcss.config.js
+
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+----------------------------------------
+
+Directory: public
+
+File: README.md
+
+Welcome to the NextJS base template bootstrapped using the `create-next-app`. This template supports TypeScript, but you can use normal JavaScript as well.
+
+## Getting Started
+
+Hit the run button to start the development server.
+
+You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+
+[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on `/api/hello`. This endpoint can be edited in `pages/api/hello.ts`.
+
+The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+## Productionizing your Next App
+
+To make your next App run smoothly in production make sure to deploy your project with [Repl Deployments](https://docs.replit.com/hosting/deployments/about-deployments)!
+
+You can also produce a production build by running `npm run build` and [changing the run command](https://docs.replit.com/programming-ide/configuring-repl#run) to `npm run start`.
+
+----------------------------------------
+
+Directory: styles
+
+File:   Home.module.css
+
+.container {
+  padding: 0 2rem;
+}
+
+.main {
+  min-height: 100vh;
+  padding: 4rem 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer {
+  display: flex;
+  flex: 1;
+  padding: 2rem 0;
+  border-top: 1px solid #eaeaea;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer a {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.title a {
+  color: #0070f3;
+  text-decoration: none;
+}
+
+.title a:hover,
+.title a:focus,
+.title a:active {
+  text-decoration: underline;
+}
+
+.title {
+  margin: 0;
+  line-height: 1.15;
+  font-size: 4rem;
+}
+
+.title,
+.description {
+  text-align: center;
+}
+
+.description {
+  margin: 4rem 0;
+  line-height: 1.5;
+  font-size: 1.5rem;
+}
+
+.code {
+  background: #fafafa;
+  border-radius: 5px;
+  padding: 0.75rem;
+  font-size: 1.1rem;
+  font-family: Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono,
+    Bitstream Vera Sans Mono, Courier New, monospace;
+}
+
+.grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 800px;
+}
+
+.card {
+  margin: 1rem;
+  padding: 1.5rem;
+  text-align: left;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid #eaeaea;
+  border-radius: 10px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  max-width: 300px;
+}
+
+.card:hover,
+.card:focus,
+.card:active {
+  color: #0070f3;
+  border-color: #0070f3;
+}
+
+.card h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+}
+
+.card p {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+.logo {
+  height: 1em;
+  margin-left: 0.2rem;
+}
+
+@media (max-width: 600px) {
+  .grid {
+    width: 100%;
+    flex-direction: column;
+  }
+}
+
+----------------------------------------
+
+File: tailwind.config.js
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx}",
+    "./pages/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+----------------------------------------
+
+File: tsconfig.json
+
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "strictNullChecks": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+----------------------------------------
+
+File: next.config.js
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
+}
+
+module.exports = nextConfig
+----------------------------------------
+
+File: postcss.config.js
+
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+----------------------------------------
+
+File: tailwind.config.js
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx}",
+    "./pages/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+----------------------------------------
+
+File: tsconfig.json
+
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "strictNullChecks": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+----------------------------------------
+
+File: package.json
+
+{
+  "name": "my-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@shadcn/ui": "^0.0.4",
+    "framer-motion": "^11.11.0",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.0.0"
+  }
+}
+
+----------------------------------------
+
+File: README.md
+
+Welcome to the NextJS base template bootstrapped using the `create-next-app`. This template supports TypeScript, but you can use normal JavaScript as well.
+
+## Getting Started
+
+Hit the run button to start the development server.
+
+You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+
+[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on `/api/hello`. This endpoint can be edited in `pages/api/hello.ts`.
+
+The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+## Productionizing your Next App
+
+To make your next App run smoothly in production make sure to deploy your project with [Repl Deployments](https://docs.replit.com/hosting/deployments/about-deployments)!
+
+You can also produce a production build by running `npm run build` and [changing the run command](https://docs.replit.com/programming-ide/configuring-repl#run) to `npm run start`.
+
+----------------------------------------
+
