@@ -90,7 +90,11 @@ export default function Home() {
   const handleSave = () => {
     if (results) {
       const savedResults = JSON.parse(localStorage.getItem('savedResults') || '[]');
-      savedResults.push(results);
+      const newResult = {
+        ...results,
+        timestamp: new Date().toISOString()
+      };
+      savedResults.push(newResult);
       localStorage.setItem('savedResults', JSON.stringify(savedResults));
       toast.success('Results saved successfully!');
     }
