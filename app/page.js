@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Card, CardHeader, CardContent } from './components/Card';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { searchGeneral, findEmail } from './api/datagmaApi';
 
 function useDebounce(func, delay) {
   const timeoutRef = useRef(null);
@@ -53,7 +54,6 @@ export default function Home() {
     if (!validateForm()) return;
 
     setLoading(true);
-    const apiId = process.env.NEXT_PUBLIC_DATAGMA_API_ID;
 
     try {
       let generalData = {};
@@ -61,43 +61,12 @@ export default function Home() {
 
       // General information search
       if (searchParams.fullName || searchParams.companyName || searchParams.socialUrl) {
-        const generalApiUrl = new URL('https://gateway.datagma.net/api/ingress/v2/full');
-        generalApiUrl.searchParams.append('apiId', apiId);
-        generalApiUrl.searchParams.append('fullName', searchParams.fullName);
-        generalApiUrl.searchParams.append('data', searchParams.companyName || searchParams.socialUrl);
-        generalApiUrl.searchParams.append('phoneFull', 'true');
-        generalApiUrl.searchParams.append('companyFull', 'true');
-        generalApiUrl.searchParams.append('personFull', 'true');
-        if (searchParams.whatsappCheck) {
-          generalApiUrl.searchParams.append('whatsappCheck', 'true');
-        }
-
-        const generalResponse = await fetch(generalApiUrl.toString());
-        generalData = await generalResponse.json();
-
-        if (!generalResponse.ok) {
-          throw new Error(`General API responded with status ${generalResponse.status}: ${generalData.message || 'Unknown error'}`);
-        }
+        generalData = await searchGeneral(searchParams);
       }
 
       // Email finding
       if (searchParams.fullName && (searchParams.companyName || searchParams.email)) {
-        const emailApiUrl = new URL('https://gateway.datagma.net/api/ingress/v6/findEmail');
-        emailApiUrl.searchParams.append('apiId', apiId);
-        emailApiUrl.searchParams.append('fullName', searchParams.fullName);
-        emailApiUrl.searchParams.append('company', searchParams.companyName);
-        emailApiUrl.searchParams.append('findEmailV2Step', '3');
-        emailApiUrl.searchParams.append('findEmailV2Country', searchParams.country);
-        if (searchParams.email) {
-          emailApiUrl.searchParams.append('email', searchParams.email);
-        }
-
-        const emailResponse = await fetch(emailApiUrl.toString());
-        emailData = await emailResponse.json();
-
-        if (!emailResponse.ok) {
-          throw new Error(`Email API responded with status ${emailResponse.status}: ${emailData.message || 'Unknown error'}`);
-        }
+        emailData = await findEmail(searchParams);
       }
 
       // Merge results
@@ -308,28 +277,28 @@ export default function Home() {
                 <p><span className="font-medium">Employee Count:</span> {results.company.full.cards.overviewFields?.numEmployee || 'N/A'}</p>
                 <p><span className="font-medium">Founded:</span> {results.company.full.cards.overviewFields?.foundedOn || 'N/A'}</p>
               </CardContent>
-              </Card>
-              )}
+            </Card>
+          )}
 
-              {results.emailFinder && (
-              <Card>
-                <CardHeader>
-                  <h4 className="text-xl font-semibold text-gray-700">Email Finder Results</h4>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <p><span className="font-medium">Email:</span> {results.emailFinder.email || 'N/A'}</p>
-                  <p><span className="font-medium">Status:</span> {results.emailFinder.status || 'N/A'}</p>
-                  <p><span className="font-medium">Type:</span> {results.emailFinder.type || 'N/A'}</p>
-                  <p><span className="font-medium">Confidence Score:</span> {results.emailFinder.confidenceScore || 'N/A'}</p>
-                </CardContent>
-              </Card>
-              )}
+          {results.emailFinder && (
+            <Card>
+              <CardHeader>
+                <h4 className="text-xl font-semibold text-gray-700">Email Finder Results</h4>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p><span className="font-medium">Email:</span> {results.emailFinder.email || 'N/A'}</p>
+                <p><span className="font-medium">Status:</span> {results.emailFinder.status || 'N/A'}</p>
+                <p><span className="font-medium">Type:</span> {results.emailFinder.type || 'N/A'}</p>
+                <p><span className="font-medium">Confidence Score:</span> {results.emailFinder.confidenceScore || 'N/A'}</p>
+              </CardContent>
+            </Card>
+          )}
 
-              {results.creditBurn && (
-              <p className="text-sm text-gray-500 mt-4">Credits used: {results.creditBurn}</p>
-              )}
-              </motion.div>
-              )}
-              </div>
-              );
-              }
+          {results.creditBurn && (
+            <p className="text-sm text-gray-500 mt-4">Credits used: {results.creditBurn}</p>
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
